@@ -34,10 +34,8 @@ app.use("/api/report", reportRoutes);
 
 app.use(errorHandler);
 
-// module.exports = app;
-
-// app.listen(PORT, ()=>{
-//     console.log(`Server runniing on Port: ${PORT}`);
-// });
+app.listen(PORT, ()=>{
+    console.log(`Server runniing on Port: ${PORT}`);
+});
 
 module.exports = app;

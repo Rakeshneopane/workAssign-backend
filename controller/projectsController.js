@@ -50,7 +50,7 @@ exports.getProjectById = async( req, res, next ) =>{
         
         return res.status(200).json({
             message: "Project fetched successfully",  
-            project: [project]
+            project: project
         });
     
     } catch (error) {

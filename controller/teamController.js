@@ -46,7 +46,6 @@ exports.getTeamById = async( req, res, next ) =>{
         
         return res.status(200).json({
             message: "Team fetched sucessfully", 
-            count: teamById.length, 
             teams: teamById
         });
     
