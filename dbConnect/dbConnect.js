@@ -12,11 +12,7 @@ const initialiseDatabase = async () => {
 
     if (!cachedConnection) {
         console.log("Creating new database connection...");
-        cachedConnection = mongoose.connect(mongoUri, {
-            useNewUrlParser: true,
-            useUnifiedTopology: true,
-            serverSelectionTimeoutMS: 5000,
-        });
+        cachedConnection = mongoose.connect(mongoUri);
     }
 
     try {
