@@ -51,6 +51,7 @@ exports.userSignup = async( req,res,next )=>{
             _id: newUser._id,
             name: newUser.name,
             email: newUser.email, 
+            role: newUser.role, 
         }
 
         return res
