@@ -15,7 +15,14 @@ const reportRoutes = require("./routes/reportRoute");
 
 const app = express();
 
-initialiseDatabase();
+app.use(async (req, res, next) => {
+    try {
+        await initialiseDatabase();
+        next();
+    } catch (err) {
+        res.status(500).json({ error: "Database connection failed" });
+    }
+});
 
 app.use(cors());
 app.use(express.json());
