@@ -14,6 +14,8 @@ const reportRoutes = require("./routes/reportRoute");
 
 
 const app = express();
+app.use(cors());
+app.use(express.json());
 
 app.use(async (req, res, next) => {
     try {
@@ -24,8 +26,7 @@ app.use(async (req, res, next) => {
     }
 });
 
-app.use(cors());
-app.use(express.json());
+
 const PORT = 3000;
 
 app.get("/", (req,res)=>{
