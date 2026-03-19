@@ -3,7 +3,7 @@ const Project = require("../models/project.model");
 
 const projectSchema = joi.object({
     name: joi.string().min(3).required(),
-    description: joi.string().min(15).required()
+    description: joi.string().min(5).required()
 });
 
 exports.postProject = async( req, res, next )=>{
