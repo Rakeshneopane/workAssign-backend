@@ -2,6 +2,7 @@ const User = require("../models/user.model");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const joi = require("joi");
+const axios = require("axios");
 
 const email = joi.string().email({tlds:{allow: false} }).required();
 const password = joi.string().min(6).required();
@@ -154,5 +155,169 @@ exports.getAll = async( req,res,next )=>{
         })
     } catch (error) {
         next(error);
+    }
+}
+
+
+const isProduction = process.env.NODE_ENV === "production";
+
+const FRONTEND_URL = process.env.NODE_ENV === 'production'
+  ? 'https://work-assign-frontend.vercel.app'
+  : 'http://localhost:5173';
+
+exports.google = (req,res, next)=>{
+    try {
+        const googleUrl =  `https://accounts.google.com/o/oauth2/v2/auth?client_id=${process.env.GOOGLE_CLIENT_ID}&redirect_uri=${process.env.GOOGLE_CALLBACK_URL}&scope=email profile&response_type=code`;
+
+        res.redirect(googleUrl);
+    } catch (error) {
+        next(error);
+    }
+}
+
+exports.googleCallback = async(req,res, next)=>{
+    
+    try {
+        const {code} = req.query;
+        if(!code) {
+            return res.status(400).json({error: "Authorization is not provided."});
+        }
+
+        const tokenResponse = await axios.post(`https://oauth2.googleapis.com/token`,{
+            client_id: process.env.GOOGLE_CLIENT_ID,
+            client_secret : process.env.GOOGLE_CLIENT_SECRET,
+            code,
+            grant_type: "authorization_code",
+            redirect_uri: process.env.GOOGLE_CALLBACK_URL
+        },{
+            headers: {"Content-Type": "application/x-www-form-urlencoded"}
+        })
+
+        const accessToken = tokenResponse.data.access_token;
+
+        const userInfo = await axios.get("https://www.googleapis.com/oauth2/v2/userinfo",
+            {
+            headers: {
+                Authorization: `Bearer ${accessToken}`
+            }
+        })
+        const { name, email } = userInfo.data;
+
+        const filter = {email};
+        const update = {
+            $set : {name},  
+            $setOnInsert: { role: "user" } 
+        };
+        const existingUser = await User.findOneAndUpdate( 
+            filter, 
+            update, 
+            { new: true, upsert: true }
+        );
+
+        const {_id} = existingUser;
+
+        const jwtToken = jwt.sign(
+            { id: existingUser._id, role: existingUser.role }, 
+            process.env.secretKey, 
+            {expiresIn: '3d'}
+        );
+
+        const refreshJWTToken = jwt.sign(
+            { id: existingUser._id, role: existingUser.role },
+            process.env.refreshSecretKey, 
+            {expiresIn: '7d'}
+        );
+
+        await User.findByIdAndUpdate(_id,{
+            refreshToken: refreshJWTToken
+        })
+
+        res.cookie("jwt_token", jwtToken, {  // access token
+            httpOnly: true,
+            secure: isProduction,
+            sameSite: isProduction ? "none" : "lax",
+            maxAge: 15 * 60 * 1000  // 15 minutes
+        });
+        res.cookie("refresh_token", refreshJWTToken, {  // refresh token
+            httpOnly: true,
+            secure: isProduction,
+            sameSite: isProduction ? "none" : "lax",
+            maxAge: 7 * 24 * 60 * 60 * 1000  // 7 days
+        });
+        return res.redirect(`${FRONTEND_URL}/oauth-callback`);       
+    } catch (error) {
+        next(error);
+    }
+};
+
+exports.refresh = async(req, res, next)=>{
+    try {
+        const refreshToken = req.cookies?.refresh_token; 
+        if (!refreshToken) {
+            return res.status(401).json({error: "No refresh token"});
+        }
+
+        const decoded = jwt.verify(refreshToken, process.env.refreshSecretKey);
+        
+        // verify token exists in DB
+        const user = await User.findById(decoded.id);
+        if (!user || user.refreshToken !== refreshToken)
+            { 
+                return res.status(403).json({error: "Invalid refresh token"});
+            }
+
+        const accessToken = jwt.sign(
+            { id: decoded.id, role: user.role },
+            process.env.secretKey,
+            { expiresIn: '15m' }
+        );
+
+        res.cookie("jwt_token", accessToken, {
+            httpOnly: true,
+            secure: isProduction,
+            sameSite: isProduction ? "none" : "lax",
+            maxAge: 15 * 60 * 1000
+        });
+
+        return res.json({ message: "Token refreshed successfully" });
+    } catch (error) {
+        next(error);
+    }
+}
+
+exports.logout = async(req,res,next)=>{
+    try {
+        const token = req.cookies?.jwt_token;
+        if (token) {
+            try {
+                const verified = jwt.verify(token, process.env.secretKey);
+                await User.findByIdAndUpdate(verified.id, { refreshToken: null });
+            } catch (err) {
+                // Access token expired/invalid, try refresh token
+                const refreshToken = req.cookies?.refresh_token;
+                if (refreshToken) {
+                    try {
+                        const decoded = jwt.verify(refreshToken, process.env.refreshSecretKey);
+                        await User.findByIdAndUpdate(decoded.id, { refreshToken: null });
+                    } catch (rErr) {}
+                }
+            }
+        }
+    } catch (error) {
+        // Ignore DB update errors during logout
+    } finally {
+        res.clearCookie("jwt_token", {
+            httpOnly: true,
+            secure: isProduction,
+            sameSite: isProduction ? "none" : "lax",
+        });
+
+        res.clearCookie("refresh_token", {
+            httpOnly: true,
+            secure: isProduction,
+            sameSite: isProduction ? "none" : "lax",
+        });
+
+        return res.json({message: " Logout successful "});
     }
 }

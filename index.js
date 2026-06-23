@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+const cookieParser = require("cookie-parser");
 
 const { initialiseDatabase } = require("./dbConnect/dbConnect");
 
@@ -14,8 +15,12 @@ const reportRoutes = require("./routes/reportRoute");
 
 
 const app = express();
-app.use(cors());
+app.use(cors({
+    origin: process.env.FRONTEND_URL,
+    credentials: true 
+}));
 app.use(express.json());
+app.use(cookieParser());
 
 app.use(async (req, res, next) => {
     try {
@@ -27,7 +32,7 @@ app.use(async (req, res, next) => {
 });
 
 
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 app.get("/", (req,res)=>{
     res.send("Work-assign API is live")
@@ -42,8 +47,8 @@ app.use("/api/report", reportRoutes);
 
 app.use(errorHandler);
 
-// app.listen(PORT, ()=>{
-//     console.log(`Server runniing on Port: ${PORT}`);
-// });
+app.listen(PORT, ()=>{
+    console.log(`Server runniing on Port: ${PORT}`);
+});
 
 module.exports = app;

@@ -13,7 +13,7 @@ const userSchema = new mongoose.Schema({
     }, // Email must be unique
     password: {
         type: String, 
-        required: true, 
+        required: false, 
     },
     role: {
         type: String,
@@ -23,7 +23,11 @@ const userSchema = new mongoose.Schema({
     team: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Team",  
-    }
+    },
+    refreshToken: {
+        type: String,
+        default: null
+    },
 },
 {
     timestamps: true,

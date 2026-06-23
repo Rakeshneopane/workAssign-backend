@@ -2,21 +2,18 @@ const jwt = require("jsonwebtoken");
 
 exports.authMiddleware = ( req, res, next )=>{
     try {
-        const authHeader = req.headers.authorization;
-
-        if(!authHeader){
+        let token;
+        if(req.cookies?.jwt_token){
+            token = req.cookies.jwt_token;
+        }
+        else if (req.headers.authorization) {
+            token = req.headers.authorization.split(" ")[1];
+        }
+        if(!token){
                 return res.status(401).json({
                 error: "No token provided"
             });
         }
-        const token = authHeader.split(" ")[1];
-
-        if (!token) {
-            return res.status(401).json({
-                error: "Invalid token format"
-            });
-        }
-
         const decode = jwt.verify(token, process.env.secretKey);
 
         req.user = decode;
